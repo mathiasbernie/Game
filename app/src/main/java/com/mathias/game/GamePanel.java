@@ -2,10 +2,13 @@ package com.mathias.game;
 
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.test.suitebuilder.annotation.Smoke;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.content.Context;
+
+import java.util.ArrayList;
 
 /**
  * Created by Mathias on 2015-11-11.
@@ -19,6 +22,8 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
     private MainThread thread;
     private Background bg;
     private Player player;
+    private ArrayList<Smokepuff> smoke;
+    private long smokeStartTime;
 
     public GamePanel(Context c) {
 
@@ -42,19 +47,20 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
     public void surfaceDestroyed(SurfaceHolder holder) {
 
         boolean retry = true;
-        while(retry) {
+        int counter = 0;
+        while(retry && counter<1000) {
+
+            counter++;
 
             try {
                 thread.setRunning(false);
                 thread.join();
+                retry = false;
             }
             catch(InterruptedException e) {
 
                 e.printStackTrace();
             }
-
-            retry = false;
-
         }
     }
     @Override
@@ -62,6 +68,8 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
 
         bg = new Background(BitmapFactory.decodeResource(getResources(), R.drawable.grassbg1));
         player = new Player(BitmapFactory.decodeResource(getResources(), R.drawable.helicopter), 65, 25, 3);
+        smoke = new ArrayList<Smokepuff>();
+
         //we can safely start the game loop
         thread.setRunning(true);
         thread.start();
@@ -105,6 +113,25 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
             bg.update();
             player.update();
 
+            long elapsed = (System.nanoTime() - smokeStartTime)/1000000;
+            if(elapsed > 120) {
+
+                smoke.add(new Smokepuff(player.getX(), player.getY()+10));
+                smokeStartTime = System.nanoTime();
+
+            }
+
+            //Removing smoke from Heli outside the screen
+            for(int i = 0; i<smoke.size();i++) {
+
+                smoke.get(i).update();
+
+                if(smoke.get(i).getX()<-10) {
+
+                    smoke.remove(i);
+
+                }
+            }
         }
     }
 
@@ -120,6 +147,13 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
             canvas.scale(scaleFactorX, scaleFactorY);
             bg.draw(canvas);
             player.draw(canvas);
+
+            for(Smokepuff sp: smoke) {
+
+                sp.draw(canvas);
+
+            }
+
             canvas.restoreToCount(savedState);
 
         }
