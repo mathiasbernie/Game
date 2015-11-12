@@ -16,6 +16,7 @@ public class TopBorder extends GameObject {
         height = h;
         width = 20;
 
+        this.x = x;
         this.y = y;
 
         dx = GamePanel.MOVESPEED;
