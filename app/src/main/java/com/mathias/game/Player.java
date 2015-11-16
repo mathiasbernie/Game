@@ -60,13 +60,13 @@ public class Player extends GameObject {
 
         if(up) {
 
-            dy -= 1;
+            dy -= 1.1;
 
         }
 
         else {
 
-            dy += 1;
+            dy += 1.1;
 
         }
 

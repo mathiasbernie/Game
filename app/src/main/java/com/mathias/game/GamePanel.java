@@ -1,9 +1,13 @@
 package com.mathias.game;
 
+import android.appwidget.AppWidgetHost;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.test.suitebuilder.annotation.Smoke;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
@@ -39,6 +43,13 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
     private boolean newGameCreated;
     //increase to slow down difficulty progression, decrease to speed up difficulty progression
     private int progressDenom = 20;
+
+    private Explosion explosion;
+    private long startReset;
+    private boolean reset;
+    private boolean disappear;
+    private boolean started;
+    private int best;
 
     public GamePanel(Context c) {
 
@@ -100,15 +111,17 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
 
         if(event.getAction()==MotionEvent.ACTION_DOWN) {
 
-            if(!player.getPlaying()) {
+            if(!player.getPlaying() && newGameCreated && reset) {
 
                 player.setPlaying(true);
                 player.setUp(true);
 
             }
 
-            else {
+            if(player.getPlaying()) {
 
+                if(!started)started = true;
+                reset = false;
                 player.setUp(true);
 
             }
@@ -130,6 +143,20 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
     public void update() {
 
         if(player.getPlaying()) {
+
+            if(bottomborder.isEmpty()) {
+
+                player.setPlaying(false);
+                return;
+
+            }
+
+            if(topborder.isEmpty()) {
+
+                player.setPlaying(false);
+                return;
+
+            }
 
             bg.update();
             player.update();
@@ -246,7 +273,27 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
 
         else {
 
-            newGameCreated = false;
+            player.resetDY();
+
+            if(!reset) {
+
+                newGameCreated = false;
+                startReset = System.nanoTime();
+                reset = true;
+                disappear = true;
+                explosion = new Explosion(BitmapFactory.decodeResource(getResources(), R.drawable.explosion),
+                        player.getX(), player.getY()-30, 100, 100, 25);
+
+            }
+
+            explosion.update();
+            long resetElapsed = (System.nanoTime()-startReset)/1000000;
+
+            if(resetElapsed>2500 && !newGameCreated) {
+
+                newGame();
+
+            }
 
             if(!newGameCreated) {
 
@@ -258,7 +305,7 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
 
     public boolean collision(GameObject a, GameObject b) {
 
-        if(Rect.intersects(a.getRectangle(),b.getRectangle())) {
+        if(Rect.intersects(a.getRectangle(), b.getRectangle())) {
 
             return true;
 
@@ -279,7 +326,12 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
             final int savedState = canvas.save();
             canvas.scale(scaleFactorX, scaleFactorY);
             bg.draw(canvas);
-            player.draw(canvas);
+
+            if(!disappear) {
+
+                player.draw(canvas);
+
+            }
 
             //draw smokepuffs
             for(Smokepuff sp: smoke) {
@@ -295,8 +347,6 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
 
             }
 
-            canvas.restoreToCount(savedState);
-
             //draw top border
             for(TopBorder tb: topborder) {
 
@@ -310,6 +360,16 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
                 bb.draw(canvas);
 
             }
+
+            //draw explosion
+            if(started) {
+
+                explosion.draw(canvas);
+
+            }
+
+            drawText(canvas);
+            canvas.restoreToCount(savedState);
 
         }
 
@@ -414,8 +474,11 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
 
     public void newGame() {
 
+        disappear = false;
+
         bottomborder.clear();
         topborder.clear();
+
         missiles.clear();
         smoke.clear();
 
@@ -425,6 +488,12 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
         player.resetDY();
         player.resetScore();
         player.setY(HEIGHT/2);
+
+        if(player.getScore()>best) {
+
+            best = player.getScore();
+
+        }
 
         //create initial borders
 
@@ -466,6 +535,30 @@ public class GamePanel extends SurfaceView implements SurfaceHolder.Callback {
         }
 
         newGameCreated = true;
+
+    }
+
+    public void drawText(Canvas canvas) {
+
+        Paint paint = new Paint();
+        paint.setColor(Color.BLACK);
+        paint.setTextSize(30);
+        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+
+        canvas.drawText("DISTANCE: " + (player.getScore()*3), 10, HEIGHT - 10, paint);
+        canvas.drawText("BEST: " + best, WIDTH - 215, HEIGHT - 10, paint);
+
+        if(!player.getPlaying() &&newGameCreated && reset) {
+
+            Paint paint1 = new Paint();
+            paint1.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+            canvas.drawText("PRESS TO START", WIDTH / 2 - 50, HEIGHT/2, paint1);
+
+            paint1.setTextSize(20);
+            canvas.drawText("PRESS AND HOLD TO GO UP", WIDTH / 2 - 50, HEIGHT/2 + 20, paint1);
+            canvas.drawText("RELEASE TO GO DOWN", WIDTH/2-50, HEIGHT/2+20, paint1);
+
+        }
 
     }
 
